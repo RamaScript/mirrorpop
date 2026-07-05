@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://mirrorpop.ramascript.com/sitemap.xml
