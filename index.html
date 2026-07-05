@@ -1,0 +1,2060 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MirrorPop — Your mirror, one press away</title>
+    <meta
+      name="description"
+      content="MirrorPop is an Android lock-screen mirror. Press, hold, glance — a front-camera preview unfolds from the notch instantly. No accounts, no cloud, nothing stored."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #0a0c10;
+        --panel: #12151c;
+        --panel-2: #191d27;
+        --line: rgba(231, 234, 242, 0.09);
+        --mist: #e9ecf4;
+        --dim: #8a91a6;
+        --dim-2: #5a6072;
+        --signal: #6ee7c9;
+        --signal-soft: rgba(110, 231, 201, 0.14);
+        --violet: #b7a6ff;
+        --violet-soft: rgba(183, 166, 255, 0.14);
+        --radius-lg: 28px;
+        --radius-md: 18px;
+        --radius-sm: 12px;
+        --ease: cubic-bezier(0.16, 0.84, 0.44, 1);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--ink);
+        color: var(--mist);
+        font-family: "Manrope", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+        min-height: 100vh;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      ul {
+        list-style: none;
+      }
+      button {
+        font-family: inherit;
+        cursor: pointer;
+      }
+
+      ::selection {
+        background: var(--signal-soft);
+        color: var(--mist);
+      }
+
+      .display {
+        font-family: "Fraunces", serif;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .mono {
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      /* ambient background blobs */
+      .ambient {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .blob {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+        opacity: 0.16;
+        animation: drift 26s ease-in-out infinite;
+      }
+      .blob.a {
+        width: 520px;
+        height: 520px;
+        background: var(--signal);
+        top: -160px;
+        left: -120px;
+      }
+      .blob.b {
+        width: 460px;
+        height: 460px;
+        background: var(--violet);
+        bottom: -180px;
+        right: -100px;
+        animation-duration: 32s;
+        animation-delay: -6s;
+      }
+      @keyframes drift {
+        0%,
+        100% {
+          transform: translate(0, 0) scale(1);
+        }
+        50% {
+          transform: translate(40px, -30px) scale(1.08);
+        }
+      }
+
+      /* ============ NAV ============ */
+      header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px clamp(20px, 5vw, 64px);
+        backdrop-filter: blur(14px);
+        background: rgba(10, 12, 16, 0.55);
+        border-bottom: 1px solid transparent;
+        transition:
+          border-color 0.3s var(--ease),
+          background 0.3s var(--ease);
+      }
+      header.scrolled {
+        border-color: var(--line);
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.15rem;
+      }
+      .logo .dot {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 120deg,
+          var(--signal),
+          var(--violet),
+          var(--signal)
+        );
+        box-shadow: 0 0 16px rgba(110, 231, 201, 0.5);
+      }
+      .logo b {
+        font-family: "Fraunces", serif;
+        font-weight: 600;
+      }
+      .logo b i {
+        font-style: italic;
+        color: var(--signal);
+      }
+
+      nav.links {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      nav.links a {
+        padding: 9px 16px;
+        border-radius: 999px;
+        font-size: 0.92rem;
+        color: var(--dim);
+        transition:
+          color 0.25s,
+          background 0.25s;
+      }
+      nav.links a:hover {
+        color: var(--mist);
+      }
+      nav.links a.active {
+        color: var(--ink);
+        background: var(--mist);
+        font-weight: 600;
+      }
+
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 20px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        font-size: 0.9rem;
+        font-weight: 600;
+        white-space: nowrap;
+        transition:
+          transform 0.3s var(--ease),
+          border-color 0.3s,
+          background 0.3s,
+          box-shadow 0.3s;
+      }
+      .btn:active {
+        transform: scale(0.96);
+      }
+      .btn-primary {
+        background: var(--mist);
+        color: var(--ink);
+        border-color: var(--mist);
+      }
+      .btn-primary:hover {
+        box-shadow: 0 0 0 6px rgba(233, 236, 244, 0.08);
+      }
+      .btn-ghost {
+        color: var(--mist);
+      }
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: var(--line);
+      }
+      .btn-outline-signal {
+        border-color: rgba(110, 231, 201, 0.4);
+        color: var(--signal);
+      }
+      .btn-outline-signal:hover {
+        background: var(--signal-soft);
+      }
+
+      .burger {
+        display: none;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+      }
+      .burger span,
+      .burger span::before,
+      .burger span::after {
+        content: "";
+        display: block;
+        width: 16px;
+        height: 2px;
+        background: var(--mist);
+        position: relative;
+        transition: 0.3s;
+      }
+      .burger span::before {
+        position: absolute;
+        top: -5px;
+      }
+      .burger span::after {
+        position: absolute;
+        top: 5px;
+      }
+
+      .mobile-panel {
+        position: fixed;
+        inset: 64px 0 auto 0;
+        z-index: 99;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        padding: 10px 24px 26px;
+        transform: translateY(-12px);
+        opacity: 0;
+        pointer-events: none;
+        transition: 0.3s var(--ease);
+      }
+      .mobile-panel.open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .mobile-panel a {
+        padding: 14px 4px;
+        border-bottom: 1px solid var(--line);
+        color: var(--dim);
+        font-size: 1.02rem;
+      }
+      .mobile-panel a.active {
+        color: var(--signal);
+      }
+
+      /* ============ LAYOUT / VIEWS ============ */
+      main[data-view] {
+        position: relative;
+        z-index: 1;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 clamp(20px, 5vw, 64px);
+        display: none;
+      }
+      main[data-view].visible {
+        display: block;
+      }
+      .view-fade {
+        animation: fadeUp 0.55s var(--ease);
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      section {
+        padding: 120px 0 0;
+      }
+      section:first-of-type {
+        padding-top: 150px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--signal);
+        padding: 7px 14px;
+        border: 1px solid rgba(110, 231, 201, 0.28);
+        border-radius: 999px;
+        background: var(--signal-soft);
+      }
+      .eyebrow::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--signal);
+        box-shadow: 0 0 8px var(--signal);
+      }
+
+      /* ============ HERO ============ */
+      .hero {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 56px;
+        align-items: center;
+      }
+      .hero h1 {
+        font-size: clamp(2.6rem, 5vw, 3.9rem);
+        line-height: 1.04;
+        margin: 22px 0 22px;
+        letter-spacing: -0.02em;
+      }
+      .hero h1 em {
+        font-style: italic;
+        color: var(--signal);
+      }
+      .hero p.lead {
+        font-size: 1.12rem;
+        color: var(--dim);
+        max-width: 480px;
+        line-height: 1.65;
+        margin-bottom: 34px;
+      }
+      .hero-ctas {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .hero-note {
+        margin-top: 22px;
+        font-size: 0.85rem;
+        color: var(--dim-2);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .hero-note svg {
+        flex-shrink: 0;
+      }
+
+      /* phone mockup */
+      .phone-wrap {
+        display: flex;
+        justify-content: center;
+        position: relative;
+      }
+      .phone {
+        width: 280px;
+        height: 568px;
+        border-radius: 44px;
+        position: relative;
+        background: linear-gradient(160deg, #171b24, #0d0f14 70%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow:
+          0 40px 90px -30px rgba(0, 0, 0, 0.7),
+          inset 0 0 0 6px #05060a;
+        overflow: hidden;
+        user-select: none;
+      }
+      .phone::before {
+        /* notch */
+        content: "";
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 70px;
+        height: 18px;
+        background: #05060a;
+        border-radius: 20px;
+        z-index: 5;
+      }
+      .phone-screen {
+        position: absolute;
+        inset: 0;
+        border-radius: 44px;
+        overflow: hidden;
+        background:
+          radial-gradient(
+            120% 90% at 30% 0%,
+            rgba(183, 166, 255, 0.35),
+            transparent 55%
+          ),
+          radial-gradient(
+            120% 90% at 80% 100%,
+            rgba(110, 231, 201, 0.3),
+            transparent 55%
+          ),
+          linear-gradient(200deg, #191f2c, #0b0d13 75%);
+      }
+      .phone-time {
+        position: absolute;
+        top: 78px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-family: "Fraunces", serif;
+        font-weight: 300;
+        font-size: 3.1rem;
+        color: rgba(255, 255, 255, 0.92);
+        letter-spacing: 0.01em;
+      }
+      .phone-date {
+        position: absolute;
+        top: 148px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 0.82rem;
+        color: rgba(255, 255, 255, 0.55);
+        font-weight: 600;
+      }
+      .lock-hint {
+        position: absolute;
+        bottom: 26px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 0.68rem;
+        color: rgba(255, 255, 255, 0.35);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .bubble {
+        position: absolute;
+        right: 22px;
+        bottom: 118px;
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        background: linear-gradient(150deg, var(--signal), var(--violet));
+        box-shadow:
+          0 8px 24px rgba(110, 231, 201, 0.35),
+          0 0 0 6px rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.25s var(--ease);
+        touch-action: none;
+        z-index: 6;
+      }
+      .bubble svg {
+        width: 22px;
+        height: 22px;
+      }
+      .bubble.pressed {
+        transform: scale(0.88);
+      }
+
+      .mirror-veil {
+        position: absolute;
+        inset: 0;
+        z-index: 7;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .mirror-veil.show {
+        opacity: 1;
+      }
+      .mirror-circle {
+        width: 224px;
+        height: 152px;
+        border-radius: 34px;
+        overflow: hidden;
+        position: absolute;
+        top: 40px;
+        left: 50%;
+        transform: translateX(-50%) scale(0.1);
+        transform-origin: top center;
+        box-shadow:
+          0 0 0 5px rgba(255, 255, 255, 0.14),
+          0 20px 60px rgba(0, 0, 0, 0.5);
+        transition: transform 0.6s cubic-bezier(0.22, 1.42, 0.4, 1);
+        background: #0d0f14;
+      }
+      .mirror-veil.show .mirror-circle {
+        transform: translateX(-50%) scale(1);
+      }
+      .avatar-scene {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(
+            140% 100% at 30% -10%,
+            rgba(183, 166, 255, 0.38),
+            transparent 55%
+          ),
+          radial-gradient(
+            140% 100% at 70% 110%,
+            rgba(110, 231, 201, 0.38),
+            transparent 55%
+          ),
+          #11141c;
+        animation: sceneBreathe 4.2s ease-in-out infinite;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+      }
+      @keyframes sceneBreathe {
+        0%,
+        100% {
+          filter: brightness(1);
+        }
+        50% {
+          filter: brightness(1.16);
+        }
+      }
+      .avatar-figure {
+        width: 64%;
+        transform-origin: bottom center;
+        animation: avatarBob 3.4s ease-in-out infinite;
+      }
+      @keyframes avatarBob {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-3px);
+        }
+      }
+      .avatar-eye {
+        transform-origin: center;
+        animation: avatarBlink 4.6s ease-in-out infinite;
+      }
+      @keyframes avatarBlink {
+        0%,
+        90%,
+        100% {
+          transform: scaleY(1);
+        }
+        93%,
+        96% {
+          transform: scaleY(0.1);
+        }
+      }
+      .avatar-mouth {
+        transform-origin: center;
+        animation: avatarTalk 3.8s ease-in-out infinite;
+      }
+      @keyframes avatarTalk {
+        0%,
+        100% {
+          transform: scaleX(1) scaleY(1);
+        }
+        50% {
+          transform: scaleX(0.88) scaleY(1.18);
+        }
+      }
+      .live-tag {
+        position: absolute;
+        top: 12px;
+        left: 16px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.58rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.8);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      }
+      .live-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--signal);
+        box-shadow: 0 0 6px var(--signal);
+        animation: liveDotPulse 1.6s ease-in-out infinite;
+      }
+      @keyframes liveDotPulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+      .mirror-shine {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(
+          circle at 32% 20%,
+          rgba(255, 255, 255, 0.35),
+          transparent 45%
+        );
+        mix-blend-mode: screen;
+        pointer-events: none;
+      }
+      .mirror-veil .helper-text {
+        position: absolute;
+        bottom: 14px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 0.62rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.75);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+      }
+      .press-caption {
+        text-align: center;
+        margin-top: 18px;
+        font-size: 0.82rem;
+        color: var(--dim-2);
+      }
+      .press-caption b {
+        color: var(--dim);
+        font-weight: 600;
+      }
+
+      /* ============ REVEAL ============ */
+      .reveal {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.7s var(--ease),
+          transform 0.7s var(--ease);
+      }
+      .reveal.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      /* ============ SECTION HEADERS ============ */
+      .section-head {
+        max-width: 640px;
+        margin-bottom: 52px;
+      }
+      .section-head h2 {
+        font-size: clamp(1.9rem, 3.4vw, 2.6rem);
+        margin-top: 16px;
+        letter-spacing: -0.01em;
+      }
+      .section-head p {
+        color: var(--dim);
+        margin-top: 14px;
+        font-size: 1.02rem;
+        line-height: 1.6;
+      }
+
+      /* ============ FEATURE GRID ============ */
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 18px;
+      }
+      .feature-card {
+        padding: 30px;
+        border-radius: var(--radius-md);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        transition:
+          transform 0.35s var(--ease),
+          border-color 0.35s;
+      }
+      .feature-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(110, 231, 201, 0.3);
+      }
+      .feature-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--signal-soft);
+        color: var(--signal);
+        margin-bottom: 18px;
+      }
+      .feature-card h3 {
+        font-family: "Fraunces", serif;
+        font-weight: 600;
+        font-size: 1.15rem;
+        margin-bottom: 10px;
+      }
+      .feature-card p {
+        color: var(--dim);
+        font-size: 0.93rem;
+        line-height: 1.6;
+      }
+
+      /* ============ HOW IT WORKS ============ */
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        counter-reset: step;
+      }
+      .flow-step {
+        position: relative;
+        padding: 34px 26px 30px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      }
+      .flow-step .num {
+        font-family: "Fraunces", serif;
+        font-style: italic;
+        font-size: 2.6rem;
+        color: transparent;
+        -webkit-text-stroke: 1.4px rgba(110, 231, 201, 0.5);
+        display: block;
+        margin-bottom: 14px;
+        line-height: 1;
+      }
+      .flow-step h3 {
+        font-size: 1.05rem;
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+      .flow-step p {
+        color: var(--dim);
+        font-size: 0.92rem;
+        line-height: 1.6;
+      }
+      .flow-connector {
+        position: absolute;
+        top: 50%;
+        right: -20px;
+        width: 20px;
+        height: 1px;
+        background: var(--line);
+        display: none;
+      }
+      @media (min-width: 769px) {
+        .flow-step:not(:last-child) .flow-connector {
+          display: block;
+        }
+      }
+      .timing-row {
+        display: flex;
+        gap: 28px;
+        margin-top: 36px;
+        flex-wrap: wrap;
+      }
+      .timing-pill {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 12px 18px;
+        border-radius: 999px;
+        border: 1px dashed var(--line);
+        font-size: 0.85rem;
+        color: var(--dim);
+      }
+      .timing-pill b {
+        font-family: "JetBrains Mono", monospace;
+        color: var(--signal);
+        font-size: 0.95rem;
+      }
+
+      /* ============ PRIVACY TEASER ============ */
+      .privacy-teaser {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        gap: 50px;
+        align-items: center;
+        padding: 52px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--line);
+        background:
+          radial-gradient(
+            120% 140% at 0% 0%,
+            var(--violet-soft),
+            transparent 60%
+          ),
+          var(--panel);
+      }
+      .privacy-teaser h2 {
+        font-size: clamp(1.7rem, 3vw, 2.2rem);
+        margin-bottom: 14px;
+      }
+      .privacy-teaser p {
+        color: var(--dim);
+        line-height: 1.65;
+        margin-bottom: 22px;
+      }
+      .check-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .check-list li {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        font-size: 0.95rem;
+        color: var(--mist);
+      }
+      .check-list svg {
+        flex-shrink: 0;
+        margin-top: 2px;
+        color: var(--signal);
+      }
+      .check-list span.dim {
+        color: var(--dim);
+      }
+
+      /* ============ DOWNLOAD CTA BAND ============ */
+      .cta-band {
+        margin-top: 130px;
+        padding: 60px 50px;
+        border-radius: var(--radius-lg);
+        background: linear-gradient(135deg, #121722, #0c0e13 60%);
+        border: 1px solid var(--line);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .cta-band::after {
+        content: "";
+        position: absolute;
+        width: 400px;
+        height: 400px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          var(--signal-soft),
+          transparent 70%
+        );
+        top: -200px;
+        right: -100px;
+      }
+      .cta-band h2 {
+        font-size: clamp(1.8rem, 3.6vw, 2.6rem);
+        margin-bottom: 16px;
+        position: relative;
+      }
+      .cta-band p {
+        color: var(--dim);
+        max-width: 460px;
+        margin: 0 auto 30px;
+        position: relative;
+      }
+      .cta-band .hero-ctas {
+        justify-content: center;
+        position: relative;
+      }
+
+      /* ============ FOOTER ============ */
+      footer {
+        margin-top: 100px;
+        border-top: 1px solid var(--line);
+        padding: 44px 0 34px;
+      }
+      .footer-grid {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 30px;
+      }
+      .footer-links {
+        display: flex;
+        gap: 26px;
+        flex-wrap: wrap;
+      }
+      .footer-links a {
+        color: var(--dim);
+        font-size: 0.88rem;
+      }
+      .footer-links a:hover {
+        color: var(--mist);
+      }
+      .footer-bottom {
+        margin-top: 34px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 0.8rem;
+        color: var(--dim-2);
+      }
+
+      /* ============ LEGAL PAGES ============ */
+      .legal-hero {
+        padding-top: 150px;
+        padding-bottom: 10px;
+      }
+      .legal-hero h1 {
+        font-size: clamp(2.1rem, 4vw, 2.9rem);
+        margin: 18px 0 10px;
+      }
+      .legal-hero .updated {
+        color: var(--dim-2);
+        font-size: 0.85rem;
+      }
+      .legal-body {
+        max-width: 760px;
+        margin-top: 50px;
+        padding-bottom: 120px;
+      }
+      .legal-body h2 {
+        font-family: "Fraunces", serif;
+        font-weight: 600;
+        font-size: 1.35rem;
+        margin: 44px 0 14px;
+      }
+      .legal-body h2:first-child {
+        margin-top: 0;
+      }
+      .legal-body p {
+        color: var(--dim);
+        line-height: 1.75;
+        margin-bottom: 14px;
+        font-size: 0.98rem;
+      }
+      .legal-body ul {
+        margin: 14px 0 20px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .legal-body ul li {
+        color: var(--dim);
+        line-height: 1.7;
+        padding-left: 22px;
+        position: relative;
+        font-size: 0.98rem;
+      }
+      .legal-body ul li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 9px;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--signal);
+      }
+      .legal-body strong {
+        color: var(--mist);
+      }
+      .perm-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0 22px;
+      }
+      .perm-table th,
+      .perm-table td {
+        text-align: left;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        font-size: 0.9rem;
+      }
+      .perm-table th {
+        color: var(--dim-2);
+        font-weight: 600;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .perm-table td {
+        color: var(--dim);
+      }
+      .perm-table td.perm-name {
+        color: var(--mist);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.82rem;
+      }
+      .callout {
+        margin: 26px 0;
+        padding: 20px 22px;
+        border-radius: var(--radius-sm);
+        border: 1px solid rgba(110, 231, 201, 0.25);
+        background: var(--signal-soft);
+        font-size: 0.92rem;
+        color: var(--mist);
+        line-height: 1.6;
+      }
+
+      /* ============ CONTACT PAGE ============ */
+      .contact-hero {
+        padding-top: 150px;
+        text-align: left;
+      }
+      .contact-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 50px;
+        padding-bottom: 130px;
+      }
+      .contact-card {
+        padding: 34px 28px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--line);
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        transition:
+          transform 0.35s var(--ease),
+          border-color 0.35s;
+      }
+      .contact-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(110, 231, 201, 0.3);
+      }
+      .contact-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--violet-soft);
+        color: var(--violet);
+      }
+      .contact-card h3 {
+        font-family: "Fraunces", serif;
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+      .contact-card p {
+        color: var(--dim);
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+      .contact-card .value {
+        color: var(--signal);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.92rem;
+        word-break: break-word;
+      }
+      .contact-card .go {
+        margin-top: auto;
+        font-size: 0.85rem;
+        color: var(--mist);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* ============ RESPONSIVE ============ */
+      @media (max-width: 900px) {
+        nav.links {
+          display: none;
+        }
+        .burger {
+          display: flex;
+        }
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .phone-wrap {
+          order: -1;
+          margin-bottom: 10px;
+        }
+        .feature-grid {
+          grid-template-columns: 1fr;
+        }
+        .flow {
+          grid-template-columns: 1fr;
+        }
+        .privacy-teaser {
+          grid-template-columns: 1fr;
+          padding: 34px 26px;
+        }
+        .contact-grid {
+          grid-template-columns: 1fr;
+        }
+        section {
+          padding-top: 90px;
+        }
+        section:first-of-type {
+          padding-top: 130px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.001ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--signal);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ambient">
+      <div class="blob a"></div>
+      <div class="blob b"></div>
+    </div>
+
+    <header id="siteHeader">
+      <a href="#home" class="logo" data-nav="home">
+        <span class="dot"></span>
+        <b>Mirror<i>Pop</i></b>
+      </a>
+      <nav class="links">
+        <a href="#home" data-nav="home">Home</a>
+        <a href="#privacy" data-nav="privacy">Privacy</a>
+        <a href="#terms" data-nav="terms">Terms</a>
+        <a href="#contact" data-nav="contact">Contact</a>
+      </nav>
+      <div class="nav-right">
+        <a
+          class="btn btn-primary"
+          href="https://play.google.com/store/apps/developer?id=RamaScript&hl=en_ZA"
+          target="_blank"
+          rel="noopener"
+        >
+          Get it on Google Play
+        </a>
+        <button class="burger" id="burgerBtn" aria-label="Open menu">
+          <span></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="mobile-panel" id="mobilePanel">
+      <a href="#home" data-nav="home">Home</a>
+      <a href="#privacy" data-nav="privacy">Privacy Policy</a>
+      <a href="#terms" data-nav="terms">Terms &amp; Conditions</a>
+      <a href="#contact" data-nav="contact">Contact</a>
+    </div>
+
+    <!-- ============ HOME ============ -->
+    <main data-view="home">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">Android · Lock-screen utility</span>
+          <h1 class="display">
+            Check yourself.<br />Right from the <em>lock screen</em>.
+          </h1>
+          <p class="lead">
+            One floating bubble. One long press. A sleek, rounded mirror unfolds
+            from your lock screen's notch — then vanishes the second you let go.
+            No unlocking, no camera roll, no cloud.
+          </p>
+          <div class="hero-ctas">
+            <a
+              class="btn btn-primary"
+              href="https://play.google.com/store/apps/developer?id=RamaScript&hl=en_ZA"
+              target="_blank"
+              rel="noopener"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M3 3l18 9-18 9V3z" fill="currentColor" />
+              </svg>
+              Get it on Google Play
+            </a>
+            <a class="btn btn-ghost" href="#how-it-works">See how it works</a>
+          </div>
+          <div class="hero-note">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z" />
+            </svg>
+            Nothing captured is ever stored. Ever.
+          </div>
+        </div>
+
+        <div class="phone-wrap">
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="phone-time">9:41</div>
+              <div class="phone-date">Monday, July 6</div>
+              <div class="lock-hint">press &amp; hold the bubble →</div>
+              <div class="bubble" id="mirrorBubble">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#0A0C10"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="8" />
+                  <circle cx="12" cy="12" r="2.4" fill="#0A0C10" />
+                </svg>
+              </div>
+              <div class="mirror-veil" id="mirrorVeil">
+                <div class="mirror-circle">
+                  <div class="avatar-scene">
+                    <svg
+                      class="avatar-figure"
+                      viewBox="0 0 160 150"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <defs>
+                        <linearGradient
+                          id="avatarGrad"
+                          x1="0"
+                          y1="0"
+                          x2="1"
+                          y2="1"
+                        >
+                          <stop offset="0%" stop-color="#6EE7C9" />
+                          <stop offset="100%" stop-color="#B7A6FF" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        d="M14 150 Q14 96 80 96 Q146 96 146 150 Z"
+                        fill="url(#avatarGrad)"
+                        opacity="0.92"
+                      />
+                      <circle cx="80" cy="56" r="36" fill="url(#avatarGrad)" />
+                      <ellipse
+                        class="avatar-eye"
+                        cx="67"
+                        cy="54"
+                        rx="4.2"
+                        ry="5.2"
+                        fill="#0d0f14"
+                      />
+                      <ellipse
+                        class="avatar-eye"
+                        cx="93"
+                        cy="54"
+                        rx="4.2"
+                        ry="5.2"
+                        fill="#0d0f14"
+                      />
+                      <path
+                        class="avatar-mouth"
+                        d="M66 72 Q80 80 94 72"
+                        stroke="#0d0f14"
+                        stroke-width="3.2"
+                        fill="none"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <div class="mirror-shine"></div>
+                  <div class="live-tag">
+                    <span class="live-dot"></span>live preview
+                  </div>
+                  <div class="helper-text">release to close</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WHAT IS THIS -->
+      <section id="what-is-this">
+        <div class="section-head reveal">
+          <span class="eyebrow">What is this</span>
+          <h2 class="display">
+            A pocket mirror that lives where you already look.
+          </h2>
+          <p>
+            MirrorPop turns your phone's front camera into a floating mirror
+            docked on your lock screen, unfolding from the notch in a clean
+            rounded panel. There's no app to open and no photo ever taken — just
+            a fast, private glance whenever you need one.
+          </p>
+        </div>
+
+        <div class="feature-grid">
+          <div class="feature-card reveal">
+            <div class="feature-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+              </svg>
+            </div>
+            <h3>Instant overlay</h3>
+            <p>
+              The mirror appears over the lock screen in under 100ms — before
+              you've finished the press.
+            </p>
+          </div>
+          <div class="feature-card reveal">
+            <div class="feature-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="8" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </div>
+            <h3>Notch-anchored mirror</h3>
+            <p>
+              A clean, rounded front-camera preview that unfolds from the notch.
+              No filters, no controls, nothing to get in the way.
+            </p>
+          </div>
+          <div class="feature-card reveal">
+            <div class="feature-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M12 2L2 7v6c0 5.4 3.8 9.4 10 11 6.2-1.6 10-5.6 10-11V7l-10-5z"
+                />
+              </svg>
+            </div>
+            <h3>Fully offline</h3>
+            <p>
+              No cloud, no backend, no login. MirrorPop never needs an internet
+              connection to work.
+            </p>
+          </div>
+          <div class="feature-card reveal">
+            <div class="feature-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="4" y="4" width="16" height="16" rx="4" />
+                <path d="M9 9l6 6M15 9l-6 6" />
+              </svg>
+            </div>
+            <h3>Nothing saved</h3>
+            <p>
+              The camera stream is never recorded, written to disk, or shared.
+              It exists for a moment, then it's gone.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOW IT WORKS -->
+      <section id="how-it-works">
+        <div class="section-head reveal">
+          <span class="eyebrow">How it works</span>
+          <h2 class="display">Three steps. No unlocking required.</h2>
+          <p>
+            The whole interaction was built around a single idea: it should feel
+            faster to check the mirror than to think about checking it.
+          </p>
+        </div>
+        <div class="flow">
+          <div class="flow-step reveal">
+            <span class="num display">01</span>
+            <h3>Press and hold the bubble</h3>
+            <p>
+              A single floating button sits on your lock screen, out of the way
+              until you need it.
+            </p>
+            <div class="flow-connector"></div>
+          </div>
+          <div class="flow-step reveal">
+            <span class="num display">02</span>
+            <h3>The mirror blooms open</h3>
+            <p>
+              A smooth animation unfolds your front-camera preview from the
+              notch, above everything else.
+            </p>
+            <div class="flow-connector"></div>
+          </div>
+          <div class="flow-step reveal">
+            <span class="num display">03</span>
+            <h3>Release to dismiss</h3>
+            <p>
+              Let go and it closes instantly, dropping you straight back to your
+              lock screen.
+            </p>
+          </div>
+        </div>
+        <div class="timing-row reveal">
+          <div class="timing-pill">Overlay appears in <b>&lt;100ms</b></div>
+          <div class="timing-pill">Camera ready in <b>&lt;300ms</b></div>
+        </div>
+      </section>
+
+      <!-- PRIVACY TEASER -->
+      <section id="privacy-teaser">
+        <div class="privacy-teaser reveal">
+          <div>
+            <span class="eyebrow">Privacy, by design</span>
+            <h2 class="display">Built with a no-data policy.</h2>
+            <p>
+              MirrorPop was designed to need as little as possible. There's no
+              account to create, nothing to sync, and no reason to ever leave
+              your device.
+            </p>
+            <a class="btn btn-outline-signal" href="#privacy" data-nav="privacy"
+              >Read the full Privacy Policy →</a
+            >
+          </div>
+          <ul class="check-list">
+            <li>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+              >
+                <path d="M20 6L9 17l-5-5" /></svg
+              ><span
+                >The camera stream is <strong>never stored</strong> — not even
+                briefly.</span
+              >
+            </li>
+            <li>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+              >
+                <path d="M20 6L9 17l-5-5" /></svg
+              ><span
+                ><strong>No network requests</strong>, ever. MirrorPop works
+                fully offline.</span
+              >
+            </li>
+            <li>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+              >
+                <path d="M20 6L9 17l-5-5" /></svg
+              ><span
+                ><strong>No accounts</strong>, no sign-in, nothing tied to your
+                identity.</span
+              >
+            </li>
+            <li>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+              >
+                <path d="M20 6L9 17l-5-5" /></svg
+              ><span
+                ><strong>No tracking or analytics</strong> running in the
+                background.</span
+              >
+            </li>
+            <li>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+              >
+                <path d="M20 6L9 17l-5-5" /></svg
+              ><span class="dim"
+                >Everything happens locally, on your device, every time.</span
+              >
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- CTA BAND -->
+      <section>
+        <div class="cta-band reveal">
+          <span class="eyebrow">Available now</span>
+          <h2 class="display">Your mirror is one press away.</h2>
+          <p>
+            Install MirrorPop from Google Play and add the bubble to your lock
+            screen in under two minutes.
+          </p>
+          <div class="hero-ctas">
+            <a
+              class="btn btn-primary"
+              href="https://play.google.com/store/apps/developer?id=RamaScript&hl=en_ZA"
+              target="_blank"
+              rel="noopener"
+              >Get it on Google Play</a
+            >
+            <a class="btn btn-ghost" href="#contact" data-nav="contact"
+              >Talk to us</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============ PRIVACY ============ -->
+    <main data-view="privacy">
+      <section class="legal-hero">
+        <span class="eyebrow">Legal</span>
+        <h1 class="display">Privacy Policy</h1>
+        <p class="updated">
+          Last updated July 6, 2026 · Applies to the MirrorPop Android app
+        </p>
+      </section>
+
+      <section class="legal-body">
+        <div class="callout">
+          The short version: MirrorPop doesn't collect, store, or transmit
+          anything. There is no server to send data to, because MirrorPop
+          doesn't have one.
+        </div>
+
+        <h2>What MirrorPop does</h2>
+        <p>
+          MirrorPop is a lock-screen utility that shows a live front-camera
+          preview inside a rounded overlay anchored to the notch when you press
+          and hold a floating bubble. The preview exists only while you're
+          holding the bubble and disappears the moment you release it.
+        </p>
+
+        <h2>What we collect</h2>
+        <p>
+          Nothing. MirrorPop has no account system, no backend server, no
+          database, and no analytics software of any kind built in. The app was
+          built to work entirely on your device, with or without an internet
+          connection.
+        </p>
+        <ul>
+          <li>
+            The camera stream shown in the mirror is never recorded, saved, or
+            written to storage.
+          </li>
+          <li>
+            MirrorPop makes no network requests — there is nowhere for your data
+            to go, even if we wanted it to.
+          </li>
+          <li>
+            We don't know who you are, how often you use the app, or what you
+            look like. We built it that way on purpose.
+          </li>
+        </ul>
+
+        <h2>Permissions we ask for, and why</h2>
+        <p>
+          Android requires MirrorPop to request a few permissions to work the
+          way it's designed to. Here's exactly what each one is used for:
+        </p>
+        <table class="perm-table">
+          <thead>
+            <tr>
+              <th>Permission</th>
+              <th>What it's for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="perm-name">Camera</td>
+              <td>
+                Shows the live front-camera preview inside the mirror panel. The
+                feed is never recorded or saved.
+              </td>
+            </tr>
+            <tr>
+              <td class="perm-name">Draw over other apps</td>
+              <td>
+                Lets the floating bubble and mirror overlay appear on top of
+                your lock screen.
+              </td>
+            </tr>
+            <tr>
+              <td class="perm-name">Accessibility Service</td>
+              <td>
+                Used only to detect the lock-screen state so the bubble can
+                appear reliably. It does not read screen content or other apps'
+                data.
+              </td>
+            </tr>
+            <tr>
+              <td class="perm-name">Foreground Service</td>
+              <td>
+                Keeps the lock-screen bubble available and responsive, and lets
+                Android show you that MirrorPop is active.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          You can review or revoke any of these permissions at any time from
+          your device's Settings app. Doing so may limit or disable the bubble,
+          but won't affect anything else on your phone.
+        </p>
+
+        <h2>Third parties</h2>
+        <p>
+          MirrorPop doesn't integrate any third-party SDKs, advertising
+          networks, or analytics tools. No data is shared with anyone, because
+          none is collected in the first place.
+        </p>
+
+        <h2>Children's privacy</h2>
+        <p>
+          MirrorPop does not knowingly collect information from anyone,
+          including children, since it collects no information at all. The app
+          is a general-purpose utility not directed specifically at children.
+        </p>
+
+        <h2>Data retention</h2>
+        <p>
+          There is nothing to retain. Camera frames are processed only in memory
+          to render the live preview and are discarded immediately after each
+          frame is drawn.
+        </p>
+
+        <h2>Changes to this policy</h2>
+        <p>
+          If MirrorPop's approach to privacy ever changes, this page will be
+          updated and the "Last updated" date above will reflect the change.
+          We'll always aim to keep the app as data-light as it is today.
+        </p>
+
+        <h2>Contact us</h2>
+        <p>
+          Questions about this policy? Reach the developer, RamaScript, at
+          <a
+            href="mailto:ramascript.main@gmail.com"
+            style="color: var(--signal)"
+            >ramascript.main@gmail.com</a
+          >
+          or visit
+          <a
+            href="https://ramascript.com"
+            target="_blank"
+            rel="noopener"
+            style="color: var(--signal)"
+            >ramascript.com</a
+          >.
+        </p>
+      </section>
+    </main>
+
+    <!-- ============ TERMS ============ -->
+    <main data-view="terms">
+      <section class="legal-hero">
+        <span class="eyebrow">Legal</span>
+        <h1 class="display">Terms &amp; Conditions</h1>
+        <p class="updated">
+          Last updated July 6, 2026 · Applies to the MirrorPop Android app
+        </p>
+      </section>
+
+      <section class="legal-body">
+        <h2>Acceptance of terms</h2>
+        <p>
+          By downloading, installing, or using MirrorPop ("the App"), you agree
+          to these Terms &amp; Conditions. If you don't agree with them, please
+          don't use the App.
+        </p>
+
+        <h2>What the App does</h2>
+        <p>
+          MirrorPop provides a floating, lock-screen accessible mirror using
+          your device's front camera, displayed inside a rounded overlay
+          anchored to the notch. The App does not capture photos or videos, does
+          not upload anything, and does not require an account.
+        </p>
+
+        <h2>License to use</h2>
+        <p>
+          RamaScript grants you a personal, non-exclusive, non-transferable,
+          revocable license to use MirrorPop on devices you own or control, for
+          personal, non-commercial use, in accordance with these terms.
+        </p>
+
+        <h2>Permissions and acceptable use</h2>
+        <ul>
+          <li>
+            You agree to use the Camera, Overlay, Accessibility, and Foreground
+            Service permissions only for the purpose of running MirrorPop as
+            intended.
+          </li>
+          <li>
+            You won't attempt to reverse-engineer, decompile, or modify the App
+            to bypass its intended lock-screen and privacy behavior.
+          </li>
+          <li>
+            You won't use the App in any way that violates applicable laws or
+            the rights of others.
+          </li>
+          <li>
+            You are responsible for how and where you use MirrorPop, including
+            respecting the privacy of people around you when the camera preview
+            is active.
+          </li>
+        </ul>
+
+        <h2>No warranty</h2>
+        <p>
+          MirrorPop is provided "as is," without warranties of any kind, express
+          or implied. We don't guarantee the App will be uninterrupted,
+          error-free, or compatible with every Android device or version.
+        </p>
+
+        <h2>Limitation of liability</h2>
+        <p>
+          To the fullest extent permitted by law, RamaScript won't be liable for
+          any indirect, incidental, or consequential damages arising from your
+          use of, or inability to use, MirrorPop.
+        </p>
+
+        <h2>Changes to the App or these terms</h2>
+        <p>
+          We may update MirrorPop or these terms from time to time to improve
+          the experience or reflect changes in how the App works. Continued use
+          of the App after an update means you accept the revised terms.
+        </p>
+
+        <h2>Termination</h2>
+        <p>
+          You can stop using MirrorPop at any time by disabling its permissions
+          or uninstalling the App. We may also discontinue the App at our
+          discretion, though we'll aim to give notice where practical.
+        </p>
+
+        <h2>Governing approach</h2>
+        <p>
+          These terms are meant to be read plainly and in good faith. If any
+          part is found unenforceable, the rest continues to apply.
+        </p>
+
+        <h2>Contact us</h2>
+        <p>
+          For questions about these terms, reach the developer, RamaScript, at
+          <a
+            href="mailto:ramascript.main@gmail.com"
+            style="color: var(--signal)"
+            >ramascript.main@gmail.com</a
+          >
+          or visit
+          <a
+            href="https://ramascript.com"
+            target="_blank"
+            rel="noopener"
+            style="color: var(--signal)"
+            >ramascript.com</a
+          >.
+        </p>
+      </section>
+    </main>
+
+    <!-- ============ CONTACT ============ -->
+    <main data-view="contact">
+      <section class="contact-hero">
+        <span class="eyebrow">Get in touch</span>
+        <h1
+          class="display"
+          style="font-size: clamp(2.1rem, 4vw, 2.9rem); margin: 18px 0 10px"
+        >
+          We'd love to hear from you.
+        </h1>
+        <p style="color: var(--dim); max-width: 520px; line-height: 1.6">
+          Questions, feedback, or a bug to report — here's every way to reach
+          the team behind MirrorPop.
+        </p>
+      </section>
+
+      <section>
+        <div class="contact-grid">
+          <div class="contact-card">
+            <div class="contact-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M2 7l10 6 10-6" />
+              </svg>
+            </div>
+            <h3>Email</h3>
+            <p>The fastest way to reach the developer directly.</p>
+            <div class="value">ramascript.main@gmail.com</div>
+            <a class="go" href="mailto:ramascript.main@gmail.com"
+              >Send an email <span>→</span></a
+            >
+          </div>
+          <div class="contact-card">
+            <div class="contact-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path
+                  d="M2 12h20M12 2c2.5 2.8 4 6.4 4 10s-1.5 7.2-4 10c-2.5-2.8-4-6.4-4-10s1.5-7.2 4-10z"
+                />
+              </svg>
+            </div>
+            <h3>Website</h3>
+            <p>More from RamaScript, the studio behind MirrorPop.</p>
+            <div class="value">ramascript.com</div>
+            <a
+              class="go"
+              href="https://ramascript.com"
+              target="_blank"
+              rel="noopener"
+              >Visit website <span>→</span></a
+            >
+          </div>
+          <div class="contact-card">
+            <div class="contact-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M3 3l18 9-18 9V3z" />
+              </svg>
+            </div>
+            <h3>Google Play</h3>
+            <p>Download MirrorPop or see other RamaScript apps.</p>
+            <div class="value" style="font-size: 0.8rem">
+              developer?id=RamaScript
+            </div>
+            <a
+              class="go"
+              href="https://play.google.com/store/apps/developer?id=RamaScript&hl=en_ZA"
+              target="_blank"
+              rel="noopener"
+              >Open Play Store <span>→</span></a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div
+        style="
+          max-width: 1180px;
+          margin: 0 auto;
+          padding: 0 clamp(20px, 5vw, 64px);
+        "
+      >
+        <div class="footer-grid">
+          <div class="logo">
+            <span class="dot"></span><b>Mirror<i>Pop</i></b>
+          </div>
+          <div class="footer-links">
+            <a href="#home" data-nav="home">Home</a>
+            <a href="#privacy" data-nav="privacy">Privacy Policy</a>
+            <a href="#terms" data-nav="terms">Terms &amp; Conditions</a>
+            <a href="#contact" data-nav="contact">Contact</a>
+            <a
+              href="https://play.google.com/store/apps/developer?id=RamaScript&hl=en_ZA"
+              target="_blank"
+              rel="noopener"
+              >Google Play</a
+            >
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© 2026 RamaScript. All rights reserved.</span>
+          <span>Made for Android · MirrorPop never leaves your device.</span>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // ---------- View routing ----------
+      const views = document.querySelectorAll("main[data-view]");
+      const navLinks = document.querySelectorAll("[data-nav]");
+      const header = document.getElementById("siteHeader");
+      const mobilePanel = document.getElementById("mobilePanel");
+      const burgerBtn = document.getElementById("burgerBtn");
+
+      function showView(name) {
+        views.forEach((v) => {
+          const match = v.getAttribute("data-view") === name;
+          v.classList.toggle("visible", match);
+          if (match) {
+            v.classList.remove("view-fade");
+            void v.offsetWidth;
+            v.classList.add("view-fade");
+          }
+        });
+        navLinks.forEach((a) =>
+          a.classList.toggle("active", a.getAttribute("data-nav") === name),
+        );
+        window.scrollTo({
+          top: 0,
+          behavior:
+            "instant" in document.documentElement.style ? "instant" : "auto",
+        });
+        mobilePanel.classList.remove("open");
+      }
+
+      function routeFromHash() {
+        const valid = ["home", "privacy", "terms", "contact"];
+        const hash = (location.hash || "#home").replace("#", "");
+        showView(valid.includes(hash) ? hash : "home");
+      }
+
+      navLinks.forEach((a) => {
+        a.addEventListener("click", (e) => {
+          // let default hash navigation happen, routing handled by hashchange
+        });
+      });
+
+      window.addEventListener("hashchange", routeFromHash);
+      routeFromHash();
+
+      // ---------- Header scroll state ----------
+      window.addEventListener("scroll", () => {
+        header.classList.toggle("scrolled", window.scrollY > 10);
+      });
+
+      // ---------- Mobile menu ----------
+      burgerBtn.addEventListener("click", () => {
+        mobilePanel.classList.toggle("open");
+      });
+
+      // ---------- Scroll reveal ----------
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+              io.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.15 },
+      );
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+      // ---------- Hero bubble interaction ----------
+      const bubble = document.getElementById("mirrorBubble");
+      const veil = document.getElementById("mirrorVeil");
+
+      function press(e) {
+        e.preventDefault();
+        bubble.classList.add("pressed");
+        veil.classList.add("show");
+      }
+      function release() {
+        bubble.classList.remove("pressed");
+        veil.classList.remove("show");
+      }
+
+      bubble.addEventListener("pointerdown", press);
+      window.addEventListener("pointerup", release);
+      bubble.addEventListener("pointerleave", (e) => {
+        if (e.buttons === 0) release();
+      });
+      bubble.addEventListener("touchstart", press, { passive: false });
+      window.addEventListener("touchend", release);
+
+      // auto-demo pulse once on load to hint interactivity
+      setTimeout(() => {
+        if (!veil.classList.contains("show")) {
+          bubble.classList.add("pressed");
+          veil.classList.add("show");
+          setTimeout(() => {
+            bubble.classList.remove("pressed");
+            veil.classList.remove("show");
+          }, 900);
+        }
+      }, 1200);
+    </script>
+  </body>
+</html>
